@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extrator DOCX - Rodrigo Niskier</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #7c3aed; /* Violeta Moderno */
+            --primary-hover: #6d28d9;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-color: #111827;
+            --border-radius: 16px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 600px;
+            padding: 40px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        header { text-align: center; margin-bottom: 35px; }
+        h1 { font-size: 26px; font-weight: 800; margin: 0; color: #111827; letter-spacing: -1px;}
+        .brand-subtitle { font-size: 13px; color: var(--primary-color); font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-bottom: 8px; }
+
+        .input-group { margin-bottom: 25px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; color: #374151; }
+
+        .file-upload-wrapper {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            background: #f9fafb;
+            transition: all 0.2s;
+        }
+        .file-upload-wrapper:hover { border-color: var(--primary-color); background: #f5f3ff; }
+        .file-upload-wrapper input[type="file"] { position: absolute; top:0; left:0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .icon { font-size: 30px; display: block; margin-bottom: 10px; }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        input[type="number"] {
+            width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box;
+        }
+
+        /* Estilo do Toggle Switch */
+        .toggle-wrapper { display: flex; align-items: center; justify-content: space-between; background: #f9fafb; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        button {
+            width: 100%; padding: 16px; background-color: var(--primary-color); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.4); transition: 0.2s;
+        }
+        button:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+        button:disabled { background-color: #9ca3af; box-shadow: none; transform: none; cursor: not-allowed;}
+
+        #status { margin-top: 25px; font-size: 14px; text-align: center; }
+        .log { font-size: 12px; color: #6b7280; display: block; margin-top: 5px; font-family: monospace;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <span class="brand-subtitle">Text Extractor Pro</span>
+        <h1>Rodrigo Niskier Tools</h1>
+    </header>
+
+    <div class="input-group">
+        <label>1. Arquivo PDF de Origem</label>
+        <div class="file-upload-wrapper">
+            <span class="icon">📄</span>
+            <span id="file-label" style="font-weight: 500; color: #4b5563;">Clique para carregar o PDF</span>
+            <input type="file" id="pdfUpload" accept=".pdf" onchange="atualizarNome()">
+        </div>
+    </div>
+
+    <div class="settings-grid input-group">
+        <div>
+            <label>Caracteres por arquivo</label>
+            <input type="number" id="charLimit" value="9000">
+        </div>
+        <div>
+            <label>Limpeza Automática</label>
+            <div class="toggle-wrapper">
+                <span style="font-size: 12px; color: #4b5563;">Remover Cabeçalho/Rodapé</span>
+                <label class="switch">
+                    <input type="checkbox" id="cleanMode" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="processarParaDocx()">Extrair Texto e Gerar DOCX</button>
+
+    <div id="status"></div>
+</div>
+
+<script>
+    // Configura o worker do PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function atualizarNome() {
+        const input = document.getElementById('pdfUpload');
+        if (input.files.length > 0) {
+            document.getElementById('file-label').innerText = input.files[0].name;
+            document.getElementById('file-label').style.color = 'var(--primary-color)';
+        }
+    }
+
+    async function processarParaDocx() {
+        const fileInput = document.getElementById('pdfUpload');
+        const charLimit = parseInt(document.getElementById('charLimit').value);
+        const cleanMode = document.getElementById('cleanMode').checked;
+        const statusDiv = document.getElementById('status');
+        const btn = document.querySelector('button');
+
+        if (fileInput.files.length === 0) {
+            alert("Por favor, selecione um PDF primeiro.");
+            return;
+        }
+
+        btn.disabled = true;
+        statusDiv.innerHTML = '<span style="color:var(--primary-color)">⏳ Inicializando motor de extração...</span>';
+
+        try {
+            const file = fileInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+            const pdf = await loadingTask.promise;
+            
+            let textoAcumulado = "";
+            let contadorArquivos = 1;
+            const zip = new JSZip();
+
+            statusDiv.innerHTML = `🔍 Analisando ${pdf.numPages} páginas...`;
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1 });
+                const textContent = await page.getTextContent();
+                
+                // --- LÓGICA DE LIMPEZA (HEURÍSTICA) ---
+                // Altura da página
+                const pageHeight = viewport.height;
+                // Zona de corte: Ignora os top 8% e bottom 8% da página se o modo "Limpeza" estiver ativo
+                const margemSeguranca = cleanMode ? pageHeight * 0.08 : 0;
+
+                // Filtra e organiza os itens de texto
+                const itensFiltrados = textContent.items.filter(item => {
+                    // O item.transform[5] é a posição Y (0 é a base da página no PDF padrão)
+                    const y = item.transform[5];
+                    // Se Y for muito pequeno (rodapé) ou muito grande (cabeçalho), ignora
+                    if (y < margemSeguranca) return false; 
+                    if (y > (pageHeight - margemSeguranca)) return false;
+                    return true;
+                });
+
+                // Ordena visualmente: Topo para baixo (Y decrescente), Esquerda para direita (X crescente)
+                itensFiltrados.sort((a, b) => {
+                    if (Math.abs(b.transform[5] - a.transform[5]) > 10) { // Se diferença de altura for relevante
+                        return b.transform[5] - a.transform[5]; // Prioriza quem está mais alto
+                    }
+                    return a.transform[4] - b.transform[4]; // Senão, prioriza quem está na esquerda
+                });
+
+                // Junta o texto da página
+                let textoPagina = itensFiltrados.map(item => item.str).join(" ");
+                
+                // Adiciona quebra de linha artificial entre páginas para não colar tudo
+                textoAcumulado += textoPagina + "\n\n";
+
+                // Atualiza progresso
+                if (i % 5 === 0) statusDiv.innerHTML = `📖 Lendo página ${i}/${pdf.numPages}...<br><span class="log">Texto no buffer: ${textoAcumulado.length} caracteres</span>`;
+
+                // --- VERIFICAÇÃO DE CORTE ---
+                if (textoAcumulado.length >= charLimit) {
+                    await salvarChunkDocx(zip, textoAcumulado, contadorArquivos);
+                    contadorArquivos++;
+                    textoAcumulado = ""; // Limpa o buffer para o próximo
+                }
+            }
+
+            // Salva o que sobrou no final (último pedaço)
+            if (textoAcumulado.trim().length > 0) {
+                await salvarChunkDocx(zip, textoAcumulado, contadorArquivos);
+            }
+
+            // Gera o ZIP final
+            statusDiv.innerText = "📦 Compactando arquivos DOCX...";
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, "Texto_Extraido_Niskier.zip");
+
+            statusDiv.innerHTML = `<span style="color:green; font-weight: bold;">✅ Sucesso! Extração concluída.</span>`;
+
+        } catch (error) {
+            console.error(error);
+            statusDiv.innerHTML = `<span style="color:red">Erro: ${error.message}</span>`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // Função auxiliar para criar o DOCX
+    async function salvarChunkDocx(zip, texto, numero) {
+        const { Document, Packer, Paragraph, TextRun } = window.docx;
+
+        // Cria o documento Word
+        const doc = new Document({
+            sections: [{
+                properties: {},
+                children: [
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: texto,
+                                font: "Calibri",
+                                size: 24, // 12pt (docx usa half-points)
+                            }),
+                        ],
+                    }),
+                ],
+            }],
+        });
+
+        // Gera o blob do arquivo .docx
+        const blob = await Packer.toBlob(doc);
+        
+        // Adiciona ao zip
+        zip.file(`Parte_${numero}.docx`, blob);
+    }
+</script>
+
+</body>
+</html>
